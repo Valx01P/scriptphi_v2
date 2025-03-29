@@ -1,10 +1,9 @@
 // server/config/passport.js
-
 import passport from 'passport'
 import { Strategy as LocalStrategy } from 'passport-local'
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20'
 import { Strategy as LinkedInStrategy } from 'passport-linkedin-oauth2'
-import bcrypt from 'bcrypt'
+import security from '../utils/security.js'
 import dotenv from 'dotenv'
 import PostgresService from '../services/postgresService.js'
 
@@ -37,8 +36,11 @@ const configurePassport = () => {
     },
     async (email, password, done) => {
       try {
+        // Sanitize email input
+        const sanitizedEmail = security.sanitizeInput(email)
+        
         // Find user by email
-        const users = await User.get_by_field('email', email)
+        const users = await User.get_by_field('email', sanitizedEmail)
         
         if (users.length === 0) {
           return done(null, false, { message: 'Incorrect email or password' })
@@ -52,7 +54,7 @@ const configurePassport = () => {
         }
         
         // Check password
-        const isValid = await bcrypt.compare(password, user.password)
+        const isValid = await security.comparePasswords(password, user.password)
         
         if (!isValid) {
           return done(null, false, { message: 'Incorrect email or password' })
@@ -88,7 +90,8 @@ const configurePassport = () => {
         }
 
         // Check if email already exists with different auth method
-        const emailUsers = await User.get_by_field('email', profile.emails[0].value)
+        const sanitizedEmail = security.sanitizeInput(profile.emails[0].value)
+        const emailUsers = await User.get_by_field('email', sanitizedEmail)
         
         if (emailUsers.length > 0) {
           // Link Google account to existing user
@@ -99,10 +102,10 @@ const configurePassport = () => {
         // Create new user
         const newUser = await User.save({
           google_id: profile.id,
-          first_name: profile.name.givenName,
-          last_name: profile.name.familyName,
-          email: profile.emails[0].value,
-          username: `${profile.name.givenName}${Math.floor(Math.random() * 10000)}`,
+          first_name: security.sanitizeInput(profile.name.givenName),
+          last_name: security.sanitizeInput(profile.name.familyName),
+          email: sanitizedEmail,
+          username: security.sanitizeInput(`${profile.name.givenName}${Math.floor(Math.random() * 10000)}`),
           profile_image_url: profile.photos[0].value,
           last_login: new Date()
         })
@@ -134,7 +137,8 @@ const configurePassport = () => {
         }
 
         // Check if email already exists with different auth method
-        const emailUsers = await User.get_by_field('email', profile.emails[0].value)
+        const sanitizedEmail = security.sanitizeInput(profile.emails[0].value)
+        const emailUsers = await User.get_by_field('email', sanitizedEmail)
         
         if (emailUsers.length > 0) {
           // Link LinkedIn account to existing user
@@ -145,10 +149,10 @@ const configurePassport = () => {
         // Create new user
         const newUser = await User.save({
           linkedin_id: profile.id,
-          first_name: profile.name.givenName,
-          last_name: profile.name.familyName,
-          email: profile.emails[0].value,
-          username: `${profile.name.givenName}${Math.floor(Math.random() * 10000)}`,
+          first_name: security.sanitizeInput(profile.name.givenName),
+          last_name: security.sanitizeInput(profile.name.familyName),
+          email: sanitizedEmail,
+          username: security.sanitizeInput(`${profile.name.givenName}${Math.floor(Math.random() * 10000)}`),
           profile_image_url: profile.photos?.[0]?.value || null,
           last_login: new Date()
         })
